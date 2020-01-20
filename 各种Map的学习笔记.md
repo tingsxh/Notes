@@ -19,7 +19,7 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
         n = (tab = resize()).length;
     if ((p = tab[i = (n - 1) & hash]) == null)
         //如果对应的桶位置，没有链表节点，则直接将该节点赋值给当前桶位置
-        tab[i] = newNode(hash, key, value, null);
+        tab[i] = newNode(hash, key, value, null)
     else {
         //如果桶不为空，开始遍历链表
         HashMap.Node<K,V> e; K k;
