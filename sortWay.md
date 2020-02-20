@@ -102,3 +102,58 @@
         }
     }
 ```
+* 快速排序
+
+```java
+
+ /**
+     * 快速排序分割
+     *
+     * @param nums
+     * @param left
+     * @param right
+     */
+    private void quickSplit(int[] nums, int left, int right) {
+        if (left >= right) {
+            return;
+        }
+        //对left~right 这段数组进行前后分组，以left 找到left 元素所应该在的一个中间位置
+        //这里考虑一下：[left~right] 里面至少有两个数字，
+        int position = partition2(nums, left, right);
+        //当只有两个数组进行前后分组了之后，就到底了，然后会一层层返回。
+        quickSplit(nums, left, position - 1);
+        quickSplit(nums, position + 1, right);
+    }
+
+    private Integer partition(int[] nums, int left, int right) {
+        //这个是整个快速排序最核心的部分
+        //选取，第一个元素为中间值
+        int random = new Random().nextInt(right - left + 1) + left;
+        int temp1 = nums[random];
+        nums[random] = nums[left];
+        nums[left] = temp1;
+        int v = nums[left];
+        //position 代表该中间值应该在的索引位置，所以初始值当然就是原始位置 left 了，
+        int position = left;
+        for (int i = left + 1; i <= right; i++) {
+            //开始从第二个元素遍历
+            //只有当找到了小于 中间值的元素，意味着应该放中间值的左边
+            if (nums[i] < v) {
+                //这里将该值，与中间值位置后一个元素position+1交换，为什么不是与position 交换呢?因为position的定义是v本身合适的位置，那么如果
+                //找到了小于v的值，就应该扩大position 位置，所以应该防在position+1 的位置，同时position 应该+1
+                position++;
+                int temp = nums[position];
+                nums[position] = nums[i];
+                nums[i] = temp;
+            }
+        }
+        //最后交换 一下v 与position 的位置即可
+        int temp = nums[position];
+        nums[position] = v;
+        nums[left] = temp;
+        return position;
+    }
+    
+```
+   
+
