@@ -1,4 +1,4 @@
-
+[TOC]
 
 ### HASHMap 分析
 
@@ -382,13 +382,22 @@ final HashMap.Node<K,V>[] resize() {
 
 ### ConcurrentHashMap
 
-* 笔记
+* 从jdk7 到jdk8 ConcurrentHashMap 抛弃了此前的分段锁的机制，而是采用了cas+ synchronized的实现方式来做到线程安全的。
 
-#### HashMap 几个疑惑
+#### TreeMap 
+
+
+
+### HashMap 几个疑惑
+
+* jdk8与jdk7 对比
+  1. 从之前的数组+单链表的形式 换成了 数组+红黑树的结构
+  2. 在resize 扩容的情况下，jdk7的实现会导致之前的链表倒置，jdk8则不会
+  3. 在实现hāsh函数的情况下，jdk8会通过引入高位的运算来随机化hāsh
+  4. Jdk8 修复了jdk7 产生的死循环的问题，主要是在resize的时候会进行链表倒叙产生的问题。
 
 * 单双向链表？
 * 红黑树转换？
-* jdk7与jdk8 对比
 * 为什么能并发
 * 为什么选择2的倍数
 

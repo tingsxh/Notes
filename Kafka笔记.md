@@ -7,14 +7,19 @@
 * kafka 的topic 可以设置多个分区，每个分区可以设置多个副本，但是同一时刻只有leader副本负责消息的写入以及读取，其余的follower副本只是负责保障高可用的特性。
 * kafka 依赖于zookeeper 来保障消息的负载均衡以及多个集群节点之间的协调。
 
-### 如何实现负载均衡，高可用
+### 如何实现负载均衡，高可用？
 
 * kafka 集群在运行时总是会选举一个**Controller** 角色来负责 各个Broker 节点之间的协调关系，出此之外controller 还负责创建topic ，以及确定该topic 下面的分区以及ISR 集群，以及leader的选举操作。
 * 所有的broker 节点都会抢着在zk 的/controller 目录下创建znode 不过只有一个能创建成功，其余失败后便会监听该节点，一旦controller 挂了，其余broker 则会立即形成一个新的controller。
 
-### 如何实现高吞吐
+### 如何实现高吞吐？
 
 * 搞吞吐时只写入数据与消费数据的速度。kafka 写入消息会采用一种分批写入的方式，即聚集到多少条消息之后，或者等待多少毫秒之后再进行消息的写入。
+
+### Zookeeper 用来干什么的?
+
+* 一个是为Kafka 集群中选举新的controller 提供帮助，保障集群的高可用，易扩展。
+* 还有就是用于存放 topic,分区信息，以及topic 下的ISR 列表等等。
 
 ### Producer 设计
 
@@ -51,11 +56,29 @@
 * reblanace 的含义主要是应带group 内部的变化，比如某个consumer 挂了，或者新加入了consumer,或者topic 的分区发生了变化，都会重新触发reblanace。
 * 组内的分区分配策略其实是右消费组内的一个consumer Leader 实现的，再交由coordinator 分发给组内其他的consumer 消费者。
 
+#### Generation
+
+* 该值可以代表reblanace的次数，每次重新均衡一次之后该值都会加1，主要作用是防止无效的offset提交。
+
 #### 提交语义
 
+##### producer 端
 
+* 生产者的提交语义是至少一次，因为producer 在发送消息至broker 时，如果由于网络原因未接收到响应，则会触发重发机制，这会使得同一消息被发送两次。
+* producer端 通过引入消息序列号的形式来保障消息发送的幂等性，原理是在每个broker端都维护来一个Map key 是producer的PID+ 分区号，value 则是该分区上消息序列的最大值，如果发现写入的消息的序列号小于该值，则直接拒绝写入。
+
+##### consumer 端
+
+* consumer 的消费时取决于consumer 自身提交的offset 参数的，如果consumer 在poll 取了消息之后立即提交自身的offset ,那么这样就能保证消息**最多被消费一次**，有可能不被消费掉。
+* 如果consumer 在每次处理完一次消息之后都立即提交一次，则可以保证**至少被消费一次的语义**
+* 至于**精确控制只消费一次**
 
 ### Broker 设计
+
+#### Controller 设计
+
+* 负责创建topic, topic 分区leader的选举，topic 分区的重新分配
+* 负责新broker 集群的加入，以及退出。
 
 #### partition
 
