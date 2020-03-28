@@ -25,7 +25,7 @@
 
 ### 消息中间件
 
-* kafka
+* [kafka](Kafka笔记)
 * RabbitMq
 
 ### 数据库
