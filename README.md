@@ -22,7 +22,11 @@
 ### 分布式
 
 * zookeeper 分布式协议
+
+### 消息中间件
+
 * kafka
+* RabbitMq
 
 ### 数据库
 
