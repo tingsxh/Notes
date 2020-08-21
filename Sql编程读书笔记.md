@@ -38,7 +38,19 @@ create view test_view AS select * from user_info where age>124 with CHECK OPTION
 
 ```
 
-
+### 查询处理逻辑
+* SQL 语句执行查询的各个阶段
+* from | 执行笛卡尔积的阶段，产生虚拟表VT1
+* on 阶段| 对上一阶段的VT1 进行条件过滤，产生VT2
+* join 阶段| 如果指定了外部连接的话，需要将未匹配的行添加到VT2 中产生VT3 虚拟表，如果JOIN 了多个数据表，则此时的VT3 继续和下表进行笛卡尔积计算
+* where 阶段|对VT3表进行条件过滤生成VT4 虚拟表
+* group by 阶段| 对VT4 表进行分组
+* cube|rollup 阶段
+* having| 阶段| 对前一步的虚拟表继续进行过滤 产生VT5
+* select| 子查询阶段
+* distinct| 去重阶段 产生VT6 
+* order by| 排序操作 对上一步虚拟排序，产生VT7 虚拟表
+* limit| 对上一步虚拟表进行截取，返回给用户
 
 
 
