@@ -51,7 +51,14 @@ create view test_view AS select * from user_info where age>124 with CHECK OPTION
 * distinct| 去重阶段 产生VT6 
 * order by| 排序操作 对上一步虚拟排序，产生VT7 虚拟表
 * limit| 对上一步虚拟表进行截取，返回给用户
+<br/>
 
+### 子查询 
+* 子查询分为独立子查询，相关子查询
+* MySql 优化器对于IN 语句的优化是 LAZY 的，对应IN 子句 如果不显示的列表定义，如IN('a','b')等这种的，都会被转换为 EXISTS 的子查询 
+* IN 和EXIST 有着几乎相同的执行计划，NOT IN 和NOT EXISTS 具有非常不同的执行计划, 需要记住一点，NOT IN 查询NULL 值返回的只有 False 和UNKNOW, 对应NOT EXIST 返回的是 true,false
 
+### MySql 连接查询
+* 
 
 
