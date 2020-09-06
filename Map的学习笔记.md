@@ -202,6 +202,19 @@ final HashMap.Node<K,V>[] resize() {
 ```
 
 * **关于红黑树的操作分析**
+* 红黑树中 节点的数据结构，其实是个双向链表。
+
+```java
+
+    static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
+        TreeNode<K,V> parent;  // red-black tree links
+        TreeNode<K,V> left;
+        TreeNode<K,V> right;
+        TreeNode<K,V> prev;    // needed to unlink next upon deletion
+        boolean red;
+        }
+
+```
 
   * 涉及到红黑树的操作，一个就是在hashMap 在插入的时候，会判断一下当前区间的单链表长度是否大于8如果大于的话就需要转换成红黑树的结构**具体转换过程是，先将当前链表逐个转换为treeNode结构的双向链表，链表位置保持不变，转换完成之后，再由表头开始转换为红黑树的结构**
   * 还有就是在扩容的时候，需要将老的桶区间上的链表移动至新桶上，这里没有对红黑树进行链表化拆分，**保持和单链表迁移一致的方法，分成两颗树，一颗是挂在原来区间，一颗挂在原来区间+oldCap,移动完毕之后再按条件决定是否需要树化，如果红黑树链表小于6的话需要恢复成单链表格式，如果大于6的话则需要将双向链表重新树化**
@@ -238,6 +251,7 @@ final HashMap.Node<K,V>[] resize() {
       }
   ```
 
+* 在jdk8 中存在线程不安全问题主要体现在 数据覆盖的问题上, A,B线程如果同时向map 中插入数据不同，hash 相同的key 时，就会出现覆盖的情况。
   
 
 ![](C:\Users\d00464537\Desktop\3.png)
@@ -383,8 +397,8 @@ final HashMap.Node<K,V>[] resize() {
 ### ConcurrentHashMap
 
 * 从jdk7 到jdk8 ConcurrentHashMap 抛弃了此前的分段锁的机制，而是采用了cas+ synchronized的实现方式来做到线程安全的。
+* ConcurrentHashMap 不仅仅在插入的时候事线程安全的，在扩容的时候也是并发操作的，将每个桶分成多个区间，按照CPU 数来多线程处理扩容操作，每个线程处理处理相同的区间。 
 
-#### TreeMap 
 
 
 
