@@ -59,18 +59,18 @@
 
 * 以上三轮方法执行完成之后，如果被中断了则会执行到 selfInterrupt() 方法
 
-  ```java
+```java
   static void selfInterrupt() {
       Thread.currentThread().interrupt();
   }
-  //这里只是简单的中断线程，因为当线程被park 挂起响应中断的方式是被唤醒。
-  ```
+//这里只是简单的中断线程，因为当线程被park 挂起响应中断的方式是被唤醒。
+```
 
-  #### 接下来总体分三步来分析:
+#### 接下来总体分三步来分析:
 
-  * 先尝试获取独占锁，也就是 tryAcquire方法，这个不是由AQS提供的，是由其子类提供。我们先看下例如ReentrantLock的非公平锁的内部实现内，如下
+* 先尝试获取独占锁，也就是 tryAcquire方法，这个不是由AQS提供的，是由其子类提供。我们先看下例如ReentrantLock的非公平锁的内部实现内，如下
 
-  ```java
+```java
    final boolean nonfairTryAcquire(int acquires) {
       final Thread current = Thread.currentThread();
     	// 获取同步器的状态，AQS提供的
@@ -92,11 +92,11 @@
       }
       return false;
   }
-  ```
+```
 
-  * 当获取锁失败，也就是tryAcquire() 防护false ,那么久需要加入同步队列进行等待了，从AQS的源码可知，AQS内部维护的等待队列是一个以Node 节点为单元的双向带头节点的链表结构，因为存在pre,next
+* 当获取锁失败，也就是tryAcquire() 防护false ,那么久需要加入同步队列进行等待了，从AQS的源码可知，AQS内部维护的等待队列是一个以Node 节点为单元的双向带头节点的链表结构，因为存在pre,next
 
-    接下来需要分析，这个构造队列节点的方法 **addWaiter(Node.EXCLUSIVE)**
+接下来需要分析，这个构造队列节点的方法 **addWaiter(Node.EXCLUSIVE)**
 
   ```java
   /***
@@ -146,7 +146,7 @@
   }
   ```
 
-  * 经过上述 addWaiter 方法，生成了一个新的节点，进一步看下acquireQueued() 方法做了什么事情
+* 经过上述 addWaiter 方法，生成了一个新的节点，进一步看下acquireQueued() 方法做了什么事情
 
   ```java
   /**
@@ -320,7 +320,7 @@
 
 * 相较于排他锁，共享锁的特定在于同一个锁，可以允许多个线程同时持有，在实际中的应用例如 读写锁，信号量等等。排他锁的话内部实现会多了一个  exclusiveOwnerThread  属性，用于记录当前持有锁的线程
 
-  ```java
+```java
   // AQS 中获取共享锁的模板方法 
   public final void acquireShared(int arg) {
           if (tryAcquireShared(arg) < 0)
@@ -337,7 +337,7 @@
            return remaining;
    }
   }
-  ```
+```
 
   * 第一次尝试获取共享锁失败后，会执行cas 拿锁操作
 
@@ -373,7 +373,7 @@
   }
   ```
 
-  ```java
+```java
       private void setHeadAndPropagate(Node node, int propagate) {
           Node h = head; // Record old head for check below
         // 设置头部节点
@@ -387,13 +387,13 @@
                   doReleaseShared();
           }
       }
-  ```
+```
 
 ### 共享锁的释放
 
   * 拿锁之后就是释放操作了，与排他锁一致，这里释放之后同样需要去唤醒排队等待的其他节点
 
-  ```java
+```java
 public final boolean releaseShared(int arg) {
       if (tryReleaseShared(arg)) {
         // 这里我猜应该是执行具体的唤醒操作，因为真正的释放，在刚才已经完成了
@@ -402,9 +402,9 @@ public final boolean releaseShared(int arg) {
       }
       return false;
   }
-  ```
+```
 
-  ```java
+```java
  /**   这段头注释的意识大意是 唤醒后继节...*/
       private void doReleaseShared() {
           for (;;) {
@@ -433,20 +433,59 @@ public final boolean releaseShared(int arg) {
       }
   // 这里需要注意谁最后拿到锁，谁就是头结点，头结点一定时有锁的
   
-  ```
+```
 
 * 值得注意的一点是非公平锁可能会造成线程饥饿的问题，但是非公平锁性能相对更优，所以其被设置为默认实现。
 
 ### 同步队列和等待队列
 
-* 等待队列-->同步队列：当调用condition对象的signal 将会唤醒等待队列的头节点并将其移动至同步队列尾巴节点
-* 同步队列-->条件队列：当调用condition对象的await 将当前获取锁的线程加入等待队列的尾部，并且唤醒同步队列下一个节点。
+**同步队列** 是AQS 同步器内部自身维护的一个数据结构，**等待队列** 也是 AQS 内部的一个内部类数据结构。
+
+```java
+    public class ConditionObject implements Condition, java.io.Serializable {
+        private static final long serialVersionUID = 1173984872572414699L;
+        /** First node of condition queue. */
+        private transient Node firstWaiter;
+        /** Last node of condition queue. */
+        private transient Node lastWaiter;
+        // 每次调用都只是将新的节点加入到尾部节点。
+    }
+```
+
+* 同步队列是双向链表，条件队列是单向列表
+
+![image-20200907200922497](aqs-queue)
+
+* **等待队列-->同步队列**：当调用condition对象的signal 将会唤醒等待队列的头节点并将其移动至同步队列尾巴节点。并唤醒该节点，让其去执行抢锁的操作，如下图：
+
+![image-20200907204514939](aqs-queue3)
+
+* **同步队列-->等待队列**：当调用condition对象的await 将当前获取锁的线程加入等待队列的尾部，并且唤醒同步队列下一个节点。同步队列和等待队列的节点是相同的结构，但是在转移的时候还是需要重新建立一个 等待队列的节点。
+
+![image-20200907204114771](aqs-queue2)
 
 ### 读写锁的原理
 
-* 读写锁本质上内部是维护了一个继承自AQS的子类，共用其中的一个state变量，其中32位的变量被分割成高16位用于控制 共享模式，和低16位用于控制独占模式。
+```java
+ReentrantReadWriteLock
+// 内部实现 含有如下两个内部类，共有一个AQS 同步器，也就是共有一个Sync 内部的State变量，获取写锁的时候+1 获取读锁的时候加1<<<16 
+private final ReentrantReadWriteLock.ReadLock readerLock;
+    /** Inner class providing writelock */
+private final ReentrantReadWriteLock.WriteLock writerLock;
+
+```
+
+* 读写锁本质上内部是维护了一个继承自AQS的子类，共用其中的一个state变量，其中32位的变量被分割成高16位用于控制 共享模式 (**读锁**)，和低16位用于控制独占模式 （**写锁**）。
 * 对于独占模式来说，通常就是 0 代表可获取锁，1 代表锁被别人获取了，重入例外
-* 而共享模式下，每个线程都可以对 state 进行加减操作
+* 而共享模式下，每个线程都可以对 state 进行加减操作。
+
+##### 获取读锁
+
+1. 获取读锁的条件是：（当前写锁未被获取，或者获取写锁的是当前线程，持有读锁的总数不超过最大值）
+
+##### 获取写锁
+
+1. 获取写锁的条件是：(1.当前写锁，读锁都未被获取。2.获取写锁的是当前线程)
 
 ##### 锁降级
 
