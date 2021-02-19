@@ -6,7 +6,7 @@
 
 
 
-* 上图是贯穿 hashMap 生命周期的一个取余算法，它是通过 hash&(n-1)来计算的，因为n 总是2的二次幂，所以这个效果等于区域操作。
+* 上图是贯穿 hashMap 生命周期的一个取余算法，它是通过 hash&(n-1)来计算的，因为n 总是2的二次幂，所以这个效果等于取余操作。
 
 * **hashMap 插入源码解析**
 
@@ -35,6 +35,7 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
             for (int binCount = 0; ; ++binCount) {
                 if ((e = p.next) == null) {
                     //当遍历的最后一个的时候，直接将值插入链表尾部
+                    // jdk8 之前采用的是头插法，后来为了安全，防止环化
                     p.next = newNode(hash, key, value, null);
                     if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                         treeifyBin(tab, hash);
@@ -84,6 +85,7 @@ final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                 if (first instanceof TreeNode)
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
                 do {
+                    //遍历单链表，直到找到匹配的值
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
                         return e;
@@ -154,7 +156,7 @@ final HashMap.Node<K,V>[] resize() {
                 else if (e instanceof HashMap.TreeNode)
                     ((HashMap.TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                 else { // preserve order
-                    //对于普通链表，需要将改位置的链表进行分组
+                    //对于普通链表，需要将该位置的链表进行分组
                     //功能就相当于，重新计算hash 重新插入新的桶中（jdk7 就是这么实现的）
                     //因为具体放在新桶的哪个位置是由 (newCap-1)& hash 计算而来，对于newCap 来说相当于高位多了个1，其实我们只需要判断hsah 值上该位置对应的值是0还是1即可
                     //如果是0 ，则桶的位置不变，如果是1 则桶的位置等于加上一个newCap 大小
@@ -203,9 +205,9 @@ final HashMap.Node<K,V>[] resize() {
 
 * **关于红黑树的操作分析**
 * 红黑树中 节点的数据结构，其实是个双向链表。
+* **大家要特别注意一点，树化有个要求就是数组长度必须大于等于MIN_TREEIFY_CAPACITY（64），否则继续采用扩容策略**
 
 ```java
-
     static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
         TreeNode<K,V> parent;  // red-black tree links
         TreeNode<K,V> left;
@@ -217,9 +219,13 @@ final HashMap.Node<K,V>[] resize() {
 ```
 
   * 涉及到红黑树的操作，一个就是在hashMap 在插入的时候，会判断一下当前区间的单链表长度是否大于8如果大于的话就需要转换成红黑树的结构**具体转换过程是，先将当前链表逐个转换为treeNode结构的双向链表，链表位置保持不变，转换完成之后，再由表头开始转换为红黑树的结构**
-  * 还有就是在扩容的时候，需要将老的桶区间上的链表移动至新桶上，这里没有对红黑树进行链表化拆分，**保持和单链表迁移一致的方法，分成两颗树，一颗是挂在原来区间，一颗挂在原来区间+oldCap,移动完毕之后再按条件决定是否需要树化，如果红黑树链表小于6的话需要恢复成单链表格式，如果大于6的话则需要将双向链表重新树化**
+
+  * 还有就是在扩容的时候，需要将老的桶区间上的链表移动至新桶上，这里没有对红黑树进行链表化拆分，**保持和单链表迁移一致的方法，分成了两个双向链表，一颗是挂在原来区间，一颗挂在原来区间+oldCap,移动完毕之后再按条件决定是否需要树化，如果红黑树链表小于6的话需要恢复成单链表格式，如果大于6的话则需要将双向链表重新树化**
+
   * 还有一个地方就是删除的时候，也需要根据条件将红黑树进行单链表化
+
   * 红黑树插入的所有节点，都保证为红色的这样方便调整：因为要满足如下几个性质
+
     * 根节点是黑的
     * 所有叶子节点是黑的
     * 不能有两个红节点相邻
@@ -252,7 +258,6 @@ final HashMap.Node<K,V>[] resize() {
   ```
 
 * 在jdk8 中存在线程不安全问题主要体现在 数据覆盖的问题上, A,B线程如果同时向map 中插入数据不同，hash 相同的key 时，就会出现覆盖的情况。
-  
 
 ![](C:\Users\d00464537\Desktop\3.png)
 
@@ -291,7 +296,6 @@ final HashMap.Node<K,V>[] resize() {
         }
     ```
 
-    
 
 ### LinkHashMap 阅读笔记
 
@@ -355,41 +359,41 @@ final HashMap.Node<K,V>[] resize() {
 
   
 
-- 可以保证以最近访问来排序
+- 可以保证以最近访问来排序(**根据访问的顺序来进行节点排序**)
 
   ```java
-       void afterNodeAccess(Node<K,V> e) { // move node to last
-                      LinkedHashMap.Entry<K,V> last;
-                      if (accessOrder && (last = tail) != e) {
-                          LinkedHashMap.Entry<K,V> p =
-                                  (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
-                          //访问的目标节点 p 以及p的前节点b p的后节点a
-                          //先将p的尾节点置null
-                          p.after = null;
-                          if (b == null)
-                              //说明p 为头结点，这个时候需要头结点上移
-                              head = a;
-                          else
-                              //不是头节点的话，则直接将p 的一前一后连接起来
-                              b.after = a;
-                          if (a != null)
-                              //如果p 不是尾节点的话，则a也指向b
-                              a.before = b;
-                          else
-                              //如果a==null 则说明b 是尾节点
-                              last = b;
-                          //如果尾节点==null
-                          if (last == null)
-                              head = p;
-                          else {
-                              //移动至链表尾部
-                              p.before = last;
-                              last.after = p;
-                          }
-                          tail = p;
-                          ++modCount;
-                      }
-       }
+  void afterNodeAccess(Node<K,V> e) { // move node to last
+                 LinkedHashMap.Entry<K,V> last;
+                 if (accessOrder && (last = tail) != e) {
+                     LinkedHashMap.Entry<K,V> p =
+                             (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
+                     //访问的目标节点 p 以及p的前节点b p的后节点a
+                     //先将p的尾节点置null
+                     p.after = null;
+                     if (b == null)
+                         //说明p 为头结点，这个时候需要头结点上移
+                         head = a;
+                     else
+                         //不是头节点的话，则直接将p 的一前一后连接起来
+                         b.after = a;
+                     if (a != null)
+                         //如果p 不是尾节点的话，则a也指向b
+                         a.before = b;
+                     else
+                         //如果a==null 则说明b 是尾节点
+                         last = b;
+                     //如果尾节点==null
+                     if (last == null)
+                         head = p;
+                     else {
+                         //移动至链表尾部
+                         p.before = last;
+                         last.after = p;
+                     }
+                     tail = p;
+                     ++modCount;
+                 }
+  }
   ```
 
 - **应用** LRUCaChe便是利用这个性质来完成的，我们还可以扩展 linkHashMap 覆写其中的决定是否删除最少访问元素的方法
@@ -397,21 +401,60 @@ final HashMap.Node<K,V>[] resize() {
 ### ConcurrentHashMap
 
 * 从jdk7 到jdk8 ConcurrentHashMap 抛弃了此前的分段锁的机制，而是采用了cas+ synchronized的实现方式来做到线程安全的。
-* ConcurrentHashMap 不仅仅在插入的时候事线程安全的，在扩容的时候也是并发操作的，将每个桶分成多个区间，按照CPU 数来多线程处理扩容操作，每个线程处理处理相同的区间。 
+* ConcurrentHashMap 不仅仅在插入的时候是线程安全的，在扩容的时候也是并发操作的，将每个桶分成多个区间，按照CPU 数来多线程处理扩容操作，每个线程处理处理相同的区间。 
+
+#### 初始化
+
+* 采用了延迟初始化，只有在put 操作进行时，才会进行tab 数组的初始化
+
+#### 插入安全
+
+* 在concurrentHashMap 的插入过程中，在对于数组的首位，如果判断当前位置没有元素的话，会先使用cas 进行元素插入，如果失败了会继续重试
+* 如果检测到当前这个位置的链表正在扩容的话，会暂停插入，直到扩容完成
+* 如果该位置头部不为空且不在扩容，则会使用synchronized 将该索引位置锁住，完成插入。
+
+#### 扩容安全
+
+* 在扩容的链表首节点会生成一个ForwardingNode  节点，hash值为-1
+* 扩容的时候会对链表头节点加锁，以防止put 数据插入。
+* 在数据插入的时候，如果发现当前的链表节点正在进行扩容的话，当前线程需要进行辅助扩容的操作，并且返回扩容完成之后新的数组
+
+#### hash冲突解决办法
+
+1. 开放地址法，根据hash 值进行再散列
+2. 拉链地址法，数组+链表的实现方式
 
 
+### HashMap 的问题点
 
+* **jdk8与jdk7 对比**
 
-### HashMap 几个疑惑
-
-* jdk8与jdk7 对比
   1. 从之前的数组+单链表的形式 换成了 数组+红黑树的结构
   2. 在resize 扩容的情况下，jdk7的实现会导致之前的链表倒置，jdk8则不会
   3. 在实现hāsh函数的情况下，jdk8会通过引入高位的运算来随机化hāsh
-  4. Jdk8 修复了jdk7 产生的死循环的问题，主要是在resize的时候会进行链表倒叙产生的问题。
 
-* 单双向链表？
-* 红黑树转换？
-* 为什么能并发
-* 为什么选择2的倍数
+4. Jdk8 修复了jdk7 产生的死循环的问题，主要是在resize的时候会进行链表倒叙产生的问题。（原因在于从头插法改为了尾插法）
 
+* **单双向链表?**
+
+  单链表，因为只有next属性。
+
+* **红黑树扩容的时候为什么采用双向链表？**
+
+  
+
+* **红黑树转换**
+
+  当单链表长度大于等于8的时候会转成红黑树，当小于等于6的时候回转成单链表
+
+* **为什么不能并发?**
+
+  会存在数据覆盖的问题，还有就是在扩容的时候回出现数据丢失问题
+
+* **为什么选择2的倍数**
+
+  只要数组大小是2的幂，则 (n-1) & hash 的结果等效于： hash % (n-1)；即与运算、求余运算通过这个前提，实现了等效且效率更高，通过将质数参与到hash运算中可以提高数据插入后的分散性，降低hash冲突发生的概率。
+
+* **为什么这里需要将高位数据移位到低位进行异或运算呢？**
+
+  这是因为有些数据计算出的哈希值差异主要在高位，而HashMap里的哈希寻址是忽略容量以上的高位的，那么这种处理就可以有效避免类似情况下的哈希碰撞。
