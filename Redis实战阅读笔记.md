@@ -191,7 +191,7 @@
 * 但是当一个主节点正在执行槽迁移的过程中，则会返回给客户的ASK错误信息，这是一种临时的处理策略。
 
 ##### 故障迁移
-
+https://cloud.tencent.com/developer/article/1444057
 
   
 
